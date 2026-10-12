@@ -1,0 +1,81 @@
+# ==========================================
+# Security & Secrets
+# ==========================================
+key/
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# Maven & Build outputs
+# ==========================================
+**/target/
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ==========================================
+# Logs
+# ==========================================
+logs/
+*.log
+
+# ==========================================
+# IDEs & Editors
+# ==========================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse / STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ==========================================
+# OS generated files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
