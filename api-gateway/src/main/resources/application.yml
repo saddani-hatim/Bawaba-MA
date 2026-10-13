@@ -1,0 +1,19 @@
+﻿server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    config:
+      discovery:
+        enabled: true        # Active la recherche du Config Server via Eureka
+        service-id: config-service  # Le nom exact du Config Server enregistré dans Eureka
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

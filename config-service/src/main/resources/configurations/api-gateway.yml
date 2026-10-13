@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        # Proxy vers auth-service via Eureka LoadBalancer
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+
+        # Proxy vers academic-service via Eureka LoadBalancer
+        - id: academic-service
+          uri: lb://academic-service
+          predicates:
+            - Path=/api/etudiant/**, /api/parent/**, /api/admin/**, /api/academic/**
+
+
+
+# Configuration JWT et Cookie HttpOnly
+jwt:
+  public-key-path: /home/hatim/projects/Bawaba/key/public.key
+  cookie:
+    access-token-name: access_token
+
+logging:
+  level:
+    root: INFO
+    ma.bawab.api_gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+
