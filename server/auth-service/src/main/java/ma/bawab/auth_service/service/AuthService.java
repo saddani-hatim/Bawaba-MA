@@ -86,10 +86,10 @@ public class AuthService {
                                                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                                                                 "Refresh token cookie is missing"));
 
-                // Handles rotation + Redis grace-period for concurrent requests internally
+                // Rotation + Redis grace-period for concurrent requests (handled internally)
                 RefreshToken rotatedToken = refreshTokenService.rotateRefreshToken(tokenValue);
 
-                // Generate new RSA RS256 access token with role and user details
+                // Generate new RSA RS256 access token
                 String newAccessToken = jwtService.generateAccessToken(rotatedToken.getUser());
 
                 // Update HttpOnly cookies

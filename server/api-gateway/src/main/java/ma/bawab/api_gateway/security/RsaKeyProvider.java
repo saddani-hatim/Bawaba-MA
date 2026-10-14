@@ -14,7 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
+import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
@@ -26,8 +28,12 @@ public class RsaKeyProvider {
     @Value("${jwt.public-key-path:/home/hatim/projects/Bawaba/key/public.key}")
     private String publicKeyPath;
 
+    @Value("${jwt.private-key-path:/home/hatim/projects/Bawaba/key/private.key}")
+    private String privateKeyPath;
+
     private final ResourceLoader resourceLoader;
     private PublicKey publicKey;
+    private PrivateKey privateKey;
 
     public RsaKeyProvider(ResourceLoader resourceLoader) {
         this.resourceLoader = resourceLoader;
@@ -41,6 +47,14 @@ public class RsaKeyProvider {
         } catch (Exception e) {
             log.error("Failed to load RSA public key from path: {}", publicKeyPath, e);
             throw new IllegalStateException("Could not initialize RSA public key for JWT authentication", e);
+        }
+
+        try {
+            this.privateKey = loadPrivateKey(privateKeyPath);
+            log.info("Successfully loaded RSA private key for access token rotation.");
+        } catch (Exception e) {
+            log.error("Failed to load RSA private key from path: {}", privateKeyPath, e);
+            throw new IllegalStateException("Could not initialize RSA private key for token rotation", e);
         }
     }
 
@@ -59,6 +73,21 @@ public class RsaKeyProvider {
         return keyFactory.generatePublic(keySpec);
     }
 
+    private PrivateKey loadPrivateKey(String path) throws Exception {
+        String keyContent = readKeyContent(path);
+        String cleaned = keyContent
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .replace("-----END RSA PRIVATE KEY-----", "")
+                .replaceAll("\\s+", "");
+
+        byte[] decoded = Base64.getDecoder().decode(cleaned);
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePrivate(keySpec);
+    }
+
     private String readKeyContent(String pathStr) throws Exception {
         // First try direct file path
         try {
@@ -70,8 +99,9 @@ public class RsaKeyProvider {
             // Ignore and try fallback
         }
 
-        // Fallback: try ResourceLoader (e.g. classpath:public.key)
-        String resourceLocation = pathStr.startsWith("classpath:") ? pathStr : "classpath:public.key";
+        // Fallback: try ResourceLoader
+        String resourceLocation = pathStr.startsWith("classpath:") ? pathStr
+                : "classpath:" + Paths.get(pathStr).getFileName();
         Resource resource = resourceLoader.getResource(resourceLocation);
         if (resource.exists()) {
             try (InputStream is = resource.getInputStream()) {
@@ -79,10 +109,14 @@ public class RsaKeyProvider {
             }
         }
 
-        throw new IllegalArgumentException("RSA Public key file not found at path: " + pathStr + " nor in classpath:public.key");
+        throw new IllegalArgumentException("RSA key file not found at path: " + pathStr);
     }
 
     public PublicKey getPublicKey() {
         return publicKey;
+    }
+
+    public PrivateKey getPrivateKey() {
+        return privateKey;
     }
 }

@@ -6,9 +6,12 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class JwtUtil {
@@ -16,6 +19,9 @@ public class JwtUtil {
     private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
     private final RsaKeyProvider rsaKeyProvider;
+
+    @Value("${jwt.access-token-expiration-ms:900000}")
+    private long accessTokenExpirationMs;
 
     public JwtUtil(RsaKeyProvider rsaKeyProvider) {
         this.rsaKeyProvider = rsaKeyProvider;
@@ -31,6 +37,31 @@ public class JwtUtil {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /**
+     * Generates a fresh RS256 access token using the extracted claims
+     * from a previously validated token. Used for access token rotation.
+     */
+    public String rotateAccessToken(String userId, String role, String email) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", Long.parseLong(userId));
+        claims.put("role", role);
+
+        Date now = new Date();
+        Date expiration = new Date(now.getTime() + accessTokenExpirationMs);
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(email)
+                .issuedAt(now)
+                .expiration(expiration)
+                .signWith(rsaKeyProvider.getPrivateKey(), Jwts.SIG.RS256)
+                .compact();
+    }
+
+    public long getAccessTokenExpirationMs() {
+        return accessTokenExpirationMs;
     }
 
     public boolean isTokenValid(String token) {
