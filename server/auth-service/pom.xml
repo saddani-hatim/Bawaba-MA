@@ -80,6 +80,14 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+
+		<!-- Resilience4j : Bulkhead pour limiter la concurrence DB -->
+		<!-- Version gérée par le BOM spring-cloud-dependencies 2025.1.3 -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+		</dependency>
+		<!-- AOP inclus en transitive par spring-cloud-starter-circuitbreaker-resilience4j -->
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>

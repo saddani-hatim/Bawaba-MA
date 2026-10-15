@@ -1,11 +1,15 @@
 package ma.bawab.auth_service.service;
 
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import ma.bawab.auth_service.dto.EtudiantMeResponse;
 import ma.bawab.auth_service.dto.MeResponse;
 import ma.bawab.auth_service.dto.ParentMeResponse;
 import ma.bawab.auth_service.entity.Role;
 import ma.bawab.auth_service.entity.User;
 import ma.bawab.auth_service.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +22,15 @@ import java.util.Optional;
 @Service
 public class MeService {
 
+    private static final Logger log = LoggerFactory.getLogger(MeService.class);
+
     private final UserRepository userRepository;
 
     public MeService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
+    @Bulkhead(name = "db-auth", fallbackMethod = "getMeFallback")
     @Transactional(readOnly = true)
     public MeResponse getMe(Long userId, String roleHeader) {
 
@@ -69,6 +76,12 @@ public class MeService {
 
         // admin ou rôle non géré → infos basiques uniquement
         return toMeResponse(findUserOrThrow(userId));
+    }
+
+    public MeResponse getMeFallback(Long userId, String roleHeader, BulkheadFullException ex) {
+        log.warn("Bulkhead db-auth saturé sur getMe userId={} : {}", userId, ex.getMessage());
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Serveur surchargé, réessayez dans quelques secondes.");
     }
 
     // ── helpers ────────────────────────────────────────────────────────────

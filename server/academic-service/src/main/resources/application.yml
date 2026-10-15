@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: academic-service
+
+# ── Resilience4j — Bulkhead sémaphore pour limiter les connexions DB ─────────
+# academic-service fait majoritairement des lectures (readOnly) mais peut
+# être sollicité par beaucoup d'étudiants/parents simultanément.
+# Pool HikariCP par défaut = 10 connexions → on reste en dessous.
+resilience4j:
+  bulkhead:
+    instances:
+      db-academic:
+        # Nombre max de requêtes DB concurrentes dans academic-service
+        max-concurrent-calls: 25
+        # Temps d'attente max avant rejet (503)
+        max-wait-duration: 500ms

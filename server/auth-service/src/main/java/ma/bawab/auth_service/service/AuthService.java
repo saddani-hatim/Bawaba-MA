@@ -1,5 +1,7 @@
 package ma.bawab.auth_service.service;
 
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import ma.bawab.auth_service.dto.*;
@@ -9,6 +11,8 @@ import ma.bawab.auth_service.repository.UserRepository;
 import ma.bawab.auth_service.security.JwtService;
 import ma.bawab.auth_service.security.RefreshTokenService;
 import ma.bawab.auth_service.util.CookieUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -17,8 +21,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Service d'authentification protégé par un Bulkhead Resilience4j.
+ *
+ * <p>
+ * Avec les virtual threads, des milliers de threads peuvent se créer
+ * simultanément et saturer le pool HikariCP. Le bulkhead {@code db-auth}
+ * limite la concurrence à 20 appels DB simultanés (=taille du pool).
+ * Au-delà, la requête attend 500 ms puis reçoit un 503.
+ */
 @Service
 public class AuthService {
+
+        private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+        private static final String BULKHEAD = "db-auth";
 
         private final UserRepository userRepository;
         private final RefreshTokenService refreshTokenService;
@@ -38,6 +54,9 @@ public class AuthService {
                 this.passwordEncoder = passwordEncoder;
         }
 
+        // ── Register ─────────────────────────────────────────────────────────────
+
+        @Bulkhead(name = BULKHEAD, fallbackMethod = "registerFallback")
         @Transactional
         public UserResponse register(RegisterRequest request) {
                 if (userRepository.existsByEmail(request.getEmail())) {
@@ -51,6 +70,15 @@ public class AuthService {
                 return toUserResponse(savedUser);
         }
 
+        public UserResponse registerFallback(RegisterRequest request, BulkheadFullException ex) {
+                log.warn("Bulkhead db-auth saturé sur register : {}", ex.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "Serveur surchargé, réessayez dans quelques secondes.");
+        }
+
+        // ── Login ─────────────────────────────────────────────────────────────────
+
+        @Bulkhead(name = BULKHEAD, fallbackMethod = "loginFallback")
         @Transactional
         public AuthResponse login(LoginRequest request, HttpServletResponse response) {
                 User user = userRepository.findByEmail(request.getEmail())
@@ -79,6 +107,16 @@ public class AuthService {
                 return new AuthResponse("Login successful", toUserResponse(user));
         }
 
+        public AuthResponse loginFallback(LoginRequest request, HttpServletResponse response,
+                        BulkheadFullException ex) {
+                log.warn("Bulkhead db-auth saturé sur login : {}", ex.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "Serveur surchargé, réessayez dans quelques secondes.");
+        }
+
+        // ── Refresh ───────────────────────────────────────────────────────────────
+
+        @Bulkhead(name = BULKHEAD, fallbackMethod = "refreshFallback")
         @Transactional
         public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
                 String tokenValue = cookieUtil.extractCookie(request, cookieUtil.getRefreshTokenCookieName())
@@ -104,6 +142,16 @@ public class AuthService {
                 return new AuthResponse("Token refreshed successfully", toUserResponse(rotatedToken.getUser()));
         }
 
+        public AuthResponse refreshFallback(HttpServletRequest request, HttpServletResponse response,
+                        BulkheadFullException ex) {
+                log.warn("Bulkhead db-auth saturé sur refresh : {}", ex.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "Serveur surchargé, réessayez dans quelques secondes.");
+        }
+
+        // ── Logout ────────────────────────────────────────────────────────────────
+
+        @Bulkhead(name = BULKHEAD, fallbackMethod = "logoutFallback")
         @Transactional
         public MessageResponse logout(HttpServletRequest request, HttpServletResponse response) {
                 cookieUtil.extractCookie(request, cookieUtil.getRefreshTokenCookieName())
@@ -115,6 +163,15 @@ public class AuthService {
 
                 return new MessageResponse("Logged out successfully");
         }
+
+        public MessageResponse logoutFallback(HttpServletRequest request, HttpServletResponse response,
+                        BulkheadFullException ex) {
+                log.warn("Bulkhead db-auth saturé sur logout : {}", ex.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "Serveur surchargé, réessayez dans quelques secondes.");
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────────
 
         private UserResponse toUserResponse(User user) {
                 return new UserResponse(

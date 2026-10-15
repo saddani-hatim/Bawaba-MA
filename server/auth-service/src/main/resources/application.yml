@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: auth-service
+
+# ── Resilience4j — Bulkhead sémaphore pour limiter les connexions DB ─────────
+# Avec les virtual threads, des milliers de threads peuvent se créer simultanément.
+# Le bulkhead empêche de saturer le pool HikariCP (max-pool-size = 20).
+resilience4j:
+  bulkhead:
+    instances:
+      db-auth:
+        # Nombre max de requêtes DB concurrentes autorisées dans auth-service
+        # Calé sur le pool HikariCP (max-pool-size: 20)
+        max-concurrent-calls: 20
+        # Temps d'attente max avant de rejeter la requête avec BulkheadFullException
+        max-wait-duration: 500ms
